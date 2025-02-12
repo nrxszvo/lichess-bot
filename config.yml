@@ -1,16 +1,16 @@
-token: "xxxxxxxxxxxxxxxxxxxxxx"    # Lichess OAuth2 Token.
+token: "lip_3ZVSLmF3f2bPfZu3P3Z9"    # Lichess OAuth2 Token.
 url: "https://lichess.org/"        # Lichess base URL.
 
 engine:                            # Engine settings.
   dir: "./engines/"                # Directory containing the engine. This can be an absolute path or one relative to lichess-bot/.
-  name: "engine_name"              # Binary name of the engine to use.
-# interpreter: "java"
+  name: "MimicTestBot"              # Binary name of the engine to use.
+  interpreter: "python"
 # interpreter_options:
 #   - "-jar"
   working_dir: ""                  # Directory where the chess engine will read and write files. If blank or missing, the current directory is used.
                                    # NOTE: If working_dir is set, the engine will look for files and directories relative to this directory, not where lichess-bot was launched. Absolute paths are unaffected.
-  protocol: "uci"                  # "uci", "xboard" or "homemade"
-  ponder: true                     # Think on opponent's time.
+  protocol: "homemade"                  # "uci", "xboard" or "homemade"
+  ponder: false                     # Think on opponent's time.
 
   polyglot:
     enabled: false                 # Activate polyglot book.
@@ -171,18 +171,18 @@ challenge:                         # Incoming challenges.
   bullet_requires_increment: false # Require that bullet game challenges from bots have a non-zero increment
   max_simultaneous_games_per_user: 5  # Maximum number of simultaneous games with the same user
 
-greeting:
+#greeting:
   # Optional substitution keywords (include curly braces):
   #   {opponent} to insert opponent's name
   #   {me} to insert bot's name
   # Any other words in curly braces will be removed.
-  hello: "Hi! I'm {me}. Good luck! Type !help for a list of commands I can respond to." # Message to send to opponent chat at the start of a game
-  goodbye: "Good game!" # Message to send to opponent chat at the end of a game
-  hello_spectators: "Hi! I'm {me}. Type !help for a list of commands I can respond to." # Message to send to spectator chat at the start of a game
-  goodbye_spectators: "Thanks for watching!" # Message to send to spectator chat at the end of a game
+  #hello: "Hi! I'm {me}. Good luck! Type !help for a list of commands I can respond to." # Message to send to opponent chat at the start of a game
+  #goodbye: "Good game!" # Message to send to opponent chat at the end of a game
+  #hello_spectators: "Hi! I'm {me}. Type !help for a list of commands I can respond to." # Message to send to spectator chat at the start of a game
+  #goodbye_spectators: "Thanks for watching!" # Message to send to spectator chat at the end of a game
 
-# pgn_directory: "game_records"    # A directory where PGN-format records of the bot's games are kept
-# pgn_file_grouping: "game"        # How to group games into files. Options are "game", "opponent", and "all"
+pgn_directory: "game_records"    # A directory where PGN-format records of the bot's games are kept
+pgn_file_grouping: "game"        # How to group games into files. Options are "game", "opponent", and "all"
                                    # "game" (default) - every game is written to a different file named "{White name} vs. {Black name} - {lichess game ID}.pgn"
                                    # "opponent" - every game with a given opponent is written to a file named "{Bot name} games vs. {Opponent name}.pgn"
                                    # "all" - every game is written to a single file named "{Bot name} games.pgn"
