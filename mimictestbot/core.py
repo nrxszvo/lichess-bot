@@ -1,13 +1,13 @@
 import os
 import pathlib
 
-import torch
 import chess
 import numpy as np
+import torch
 
 from .config import get_config
-from .dual_zero.model import Transformer, ModelArgs
-from .lib import BoardState, IllegalMoveException, STARTMV
+from .dual_zero.model import ModelArgs, Transformer
+from .lib import STARTMV, BoardState, IllegalMoveException
 
 
 class Wrapper(torch.nn.Module):
@@ -43,6 +43,7 @@ class MimicTestBotCore:
         cfg = os.path.join(dn, "dual_zero", "cfg.yml")
         cfgyml = get_config(cfg)
         self.tc_groups = cfgyml.tc_groups
+        self.whiten_params = cfgyml.whiten_params
         model_args = get_model_args(cfgyml)
         self.model = Wrapper(Transformer(model_args))
         cp = torch.load(
@@ -78,9 +79,11 @@ class MimicTestBotCore:
 
     @torch.inference_mode
     def predict(self, uci: str) -> chess.Move:
+        wm, ws = self.whiten_params
+
         def parse_elo(elo_pred):
-            m = (elo_pred[0, :, 0, 0] * 358 + 1611).int()
-            s = ((elo_pred[0, :, 0, 1] ** 0.5) * 2 * 358).int()
+            m = elo_pred[0, :, 0, 0] * ws + wm
+            s = ((elo_pred[0, :, 0, 1] ** 0.5) * ws) ** 2
             return m, s
 
         if uci is not None:
@@ -91,7 +94,8 @@ class MimicTestBotCore:
 
         mv_pred, elo_pred = self.model(self.inp)
 
-        info = {"WhiteElo": "tbd", "BlackElo": "tbd"}
+        def_elo = {"m": wm, "s": ws**2}
+        info = {"weloParams": def_elo, "beloParams": def_elo}
         if uci is not None:
             ms, ss = parse_elo(elo_pred)
             if len(ms) % 2 == 0:
@@ -101,14 +105,16 @@ class MimicTestBotCore:
                 widx = -1
                 bidx = -2
             info = {
-                "WhiteElo": (ms[widx].item(), ss[widx].item()),
-                "BlackElo": (ms[bidx].item(), ss[bidx].item()),
+                "weloParams": {"m": ms[widx].item(), "s": ss[widx].item()},
+                "beloParams": {"m": ms[bidx].item(), "s": ss[bidx].item()},
             }
             self.logger.info(f"White Elo: {ms[widx]} +/- {ss[widx]}")
             self.logger.info(f"Black Elo: {ms[bidx]} +/- {ss[bidx]}")
         # self._print_top_five(mv_pred[0, -1])
         probs, mvids = mv_pred[0, -1, -1].softmax(dim=0).sort(descending=True)
         p = probs[:5].double() / probs[:5].double().sum()
+        p[p < 0.05] = 1e-8
+        p = p / p.sum()
         mvids = np.random.choice(mvids[:5], size=5, replace=False, p=p)
         for mvid in mvids:
             try:
