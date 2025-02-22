@@ -1,5 +1,6 @@
 """The main module that controls lichess-bot."""
 
+from functools import partial
 import argparse
 import chess
 import chess.pgn
@@ -25,6 +26,8 @@ import glob
 import platform
 import importlib.metadata
 import contextlib
+import http.server
+import socketserver
 from lib.config import load_config, Configuration, log_config
 from lib.conversation import Conversation, ChatLine
 from lib.timer import Timer, seconds, msec, hours, to_seconds
@@ -56,6 +59,26 @@ from types import FrameType
 
 MULTIPROCESSING_LIST_TYPE = MutableSequence[model.Challenge]
 POOL_TYPE = Pool
+
+
+class ServerHandler(http.server.BaseHTTPRequestHandler):
+    def __init__(self, control_queue, *args, **kwargs):
+        self.control_queue = control_queue
+        super().__init__(*args, **kwargs)
+
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        content_length = int(
+            self.headers["Content-Length"]
+        )  # <--- Gets the size of data
+        post_data = self.rfile.read(content_length)  # <--- Gets the data itself
+        event = json.loads(post_data.decode("utf-8"))
+        self.control_queue.put_nowait(event)
+
+    def log_message(self, format, *args):
+        return
 
 
 class PlayGameArgsType(TypedDict, total=False):
@@ -139,19 +162,9 @@ def watch_control_stream(
 ) -> None:
     """Put the events in a queue."""
     error = None
-    while not terminated:
-        try:
-            response = li.get_event_stream()
-            lines = response.iter_lines()
-            for line in lines:
-                if line:
-                    event = json.loads(line.decode("utf-8"))
-                    control_queue.put_nowait(event)
-                else:
-                    control_queue.put_nowait({"type": "ping"})
-        except Exception:
-            error = traceback.format_exc()
-            break
+    handler = partial(ServerHandler, control_queue)
+    with socketserver.TCPServer(("localhost", 5001), handler) as server:
+        server.serve_forever()
 
     control_queue.put_nowait({"type": "terminated", "error": error})
 
@@ -1530,6 +1543,7 @@ def check_python_version() -> None:
 def start_program() -> None:
     """Start lichess-bot and restart when needed."""
     multiprocessing.set_start_method("spawn")
+
     try:
         while should_restart():
             disable_restart()
